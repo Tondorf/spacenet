@@ -7,4 +7,6 @@ fi
 geth \
 	--datadir spacedata \
 	--networkid 1337 \
-	--bootnodes ${1}
+	--genesis SpacenetGenesis.json \
+	--bootnodes ${1} \
+	console
