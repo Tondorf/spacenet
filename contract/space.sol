@@ -13,138 +13,124 @@ contract Ownable {
 
 contract Space is Ownable {
 
-	uint constant REGISTRATION_FEE = 1 ether;
-	uint constant X = 10;
-	uint constant Y = 10;
+	uint REGISTRATION_FEE = 1 ether;
+	uint SHIP_COST = 1 ether;
+	uint STARTING_SHIP_COUNT = 10;
 
 	struct Planet {
-		uint x;
-		uint y;
-		string name;
+		uint hash;
 		uint size;
-
-		Mine ironMine;
-		Mine copperMine;
+		address owner;
+		uint fleets;
+		uint immunity;
 	}
 
-	struct Mine {
-		uint level;
-		uint resource;
-	}
-
-	struct Spaceship {
-		uint planetID;
-		//uint flyingTo;
-		uint hp;
-		uint laser;
-		uint shield;
-	}
-
-	modifier owns(address _player, uint _planetID) {
-		require(planet2owner[_planetID] == _player);
+	modifier exists(uint _planetID) {
+		require(_planetID < planets.length);
 		_;
 	}
 
-	Planet[] internal planets;
-	mapping (uint => address) internal planet2owner;
-	// colonizedPlanets == X*Y - freePlanets.length
-	uint[] internal freePlanets;
-
-	Spaceship[] internal spaceships;
-	mapping (uint => address) internal spaceship2owner;
-
-	function Space() public {
-		for (uint y = 0; y < Y; y++) {
-			for (uint x = 0; x < X; x++) {
-				uint size = 10 + uint(keccak256(block.timestamp + x + y)) % 41; // size range: 10-50
-				Mine memory iron = Mine(1, 1000);
-				Mine memory copp = Mine(1, 1000);
-				uint planetID = planets.push(Planet(x, y, "", size, iron, copp));
-				freePlanets.push(planetID);
-			}
-		}
+	modifier owns(address _player, uint _planetID) {
+		require(_planetID < planets.length); // same as exists
+		require(planets[_planetID].owner == _player);
+		_;
 	}
 
-	function register(string _planetname) external payable {
+	modifier hasAtLeast(uint _planetID, uint _fleet) {
+		require(_planetID < planets.length); // same as exists
+		require(planets[_planetID].fleets >= _fleet);
+		_;
+	}
+
+	Planet[] public planets;
+	mapping (address => uint[]) internal player2planets; // homeplanet is always first in the list
+	mapping (address => uint) internal shipcount; // mainly for statistics
+
+	function Space() public {
+		//
+	}
+
+	// Registration, to be called initially by each player
+	function register() external payable {
 		require(msg.value >= REGISTRATION_FEE); // registration fee is 1 ether
 		if (msg.value > REGISTRATION_FEE) {
 			msg.sender.transfer(msg.value - REGISTRATION_FEE); // send back everything that was too much
 		}
-		bool success = _assignPlanet(msg.sender, _planetname);
-		if (!success) { // refund
-			msg.sender.transfer(REGISTRATION_FEE);
+		_assignHomePlanet(msg.sender);
+	}
+
+	function _assignHomePlanet(address _player) internal {
+		_newPlanet(_player, 100, STARTING_SHIP_COUNT, true);
+	}
+
+	function _newPlanet(address _player, uint _size, uint _fleet, bool _homebase) private {
+		uint hash = uint(keccak256(block.timestamp + uint(_player)));
+		uint immunity = 1 minutes; // <- for testing // 1 days;
+		if (_homebase) {
+			immunity = 1 weeks;
+		}
+
+		uint id = planets.push(Planet(hash, _size, _player, _fleet, immunity)); // create planet
+		player2planets[_player].push(id); // add home planet to player's mapping array
+		shipcount[_player] = _fleet; // initialize ship counter for player
+	}
+
+	function transfer(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(msg.sender, _to) {
+		require(planets[_from].fleets >= _fleet);
+		planets[_from].fleets -= _fleet;
+		planets[_to].fleets += _fleet;
+		// TODO: calculate cost or something
+	}
+
+	function attack(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) {
+		require(planets[_to].owner != msg.sender);
+		require(planets[_to].owner != 0x0);
+		planets[_from].fleets -= _fleet; // ships take
+
+		// TODO: calculate cost or something
+
+		uint attackers = _fleet;
+		uint defendants = planets[_to].fleets;
+		if (attackers == defendants) {
+			planets[_to].owner = 0x0; // planet becomes uninhabited
+			planets[_to].fleets = 0;
+		} else if (attackers < defendants) { // attacker loses
+			planets[_to].fleets = defendants - attackers;
+		} else if (attackers > defendants) { // attacker wins, change ownership
+			planets[_to].fleets = attackers - defendants;
+			planets[_to].owner = msg.sender;
 		}
 	}
 
-	function _assignPlanet(address _player, string _planetname) internal returns (bool) {
-		if (freePlanets.length == 0) {
-			return false;
-		}
-		uint nextFreeID = uint(keccak256(uint(_player) + block.timestamp)) % freePlanets.length;
-		uint newPlayerPlanetID = freePlanets[nextFreeID]; // colonize planet with this ID
-
-		planets[newPlayerPlanetID].name = _planetname; // set player-chosen name
-		planet2owner[newPlayerPlanetID] = _player; // create planet->player relation
-
-		freePlanets[nextFreeID] = freePlanets[freePlanets.length]; // move last element to the one that was just assigned
-		delete freePlanets[freePlanets.length]; // delete last element
-		freePlanets.length--;
-		return true;
+	function expedition(uint _from, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
+		planets[_from].fleets -= _fleet;
+		uint rng = uint(keccak256(block.timestamp + uint(msg.sender) + planets[_from].hash));
+		uint wayloss = 0; // TODO: calculate
+		_newPlanet(msg.sender, 10+rng%41, _fleet-wayloss, false);
 	}
 
-	function buildSpaceship(uint _planetID) external owns(msg.sender, _planetID) {
-		require(_planetID < planets.length);
-		require(planets[_planetID].ironMine.resource >= 100);
-		planets[_planetID].ironMine.resource -= 100;
-		uint spaceshipID = spaceships.push(Spaceship(_planetID, 100, 10, 10));
-		spaceship2owner[spaceshipID] = msg.sender;
+	// ships go to homebase
+	function buyShips() external payable {
+		uint ships = msg.value / SHIP_COST;
+		uint homebaseID = player2planets[msg.sender][0];
+		Planet storage homebase = planets[homebaseID]; // homebase is first in list
+		homebase.fleets += ships;
+		msg.sender.transfer(msg.value - ships * SHIP_COST); // send back the change
 	}
+
+	// Getter
 
 	function getPlanetIDsForPlayer(address _player) external view returns (uint[]) {
-		uint[] memory planetIDs;
-		uint counter = 0;
-		for (uint i = 0; i < planets.length; i++) {
-			if (planet2owner[i] == _player) {
-				planetIDs[counter] = i;
-				counter++;
-			}
-		}
-		return planetIDs;
+		return player2planets[_player]; // what if key doesn't exist
 	}
 
-	function getPlanet(uint _planetID) external view returns (uint, uint, string, uint) {
-		require(_planetID < planets.length);
+	function getPlanet(uint _planetID) external view exists(_planetID) returns (uint, address, uint) {
 		Planet memory p = planets[_planetID];
-		return (p.x, p.y, p.name, p.size);
+		return (p.size, p.owner, p.fleets);
 	}
 
-	function getSpaceshipIDsForPlayer(address _player) external view returns (uint[]) {
-		uint[] memory spaceshipIDs;
-		uint counter = 0;
-		for (uint i = 0; i < spaceships.length; i++) {
-			if (spaceship2owner[i] == _player) {
-				spaceshipIDs[counter] = i;
-				counter++;
-			}
-		}
-		return spaceshipIDs;
-	}
-
-	function getSpaceshipIDsForPlanet(uint _planetID) external view returns (uint[]) {
-		uint[] memory spaceshipIDs;
-		uint counter = 0;
-		for (uint i = 0; i < spaceships.length; i++) {
-			if (spaceships[i].planetID == _planetID) {
-				spaceshipIDs[counter] = i;
-				counter++;
-			}
-		}
-		return spaceshipIDs;
-	}
-
-	function getSpaceship(uint _spaceshipID) external view returns (Spaceship) {
-		require(_spaceshipID < spaceships.length);
-		return spaceships[_spaceshipID];
+	function getFleetCountForPlayer(address _player) external view returns (uint) {
+		return shipcount[_player]; // what if key doesn't exist
 	}
 
 }
