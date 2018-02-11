@@ -53,7 +53,7 @@ contract Space is Ownable {
 		colonizedPlanets = 0;
 		for (uint y = 0; y < Y; y++) {
 			for (uint x = 0; x < X; x++) {
-				uint size = 1 + uint(keccak256(now + x + y)) % 100;
+				uint size = 1 + uint(keccak256(block.timestamp + x + y)) % 100;
 				Mine memory iron = Mine(1, 1000);
 				Mine memory copp = Mine(1, 1000);
 				uint planetID = planets.push(Planet(x, y, "", size, iron, copp));
@@ -78,14 +78,14 @@ contract Space is Ownable {
 		if (freePlanets == 0) {
 			return false;
 		}
-		uint freePlanetID = uint(keccak256(uint(_playerID) + now)) % freePlanets;
-		uint newPlayerPlanetID = freePlanetIDs[freePlanetID];
+		uint nextFreeID = uint(keccak256(uint(_playerID) + block.timestamp)) % freePlanets;
+		uint newPlayerPlanetID = freePlanetIDs[nextFreeID];
 
 		planets[newPlayerPlanetID].name = _planetname;
 		planet2owner[newPlayerPlanetID] = _playerID;
 		colonizedPlanets++;
 
-		freePlanetIDs[freePlanetID] = freePlanetIDs[freePlanetIDs.length]; // move last element to that one that was just assigned
+		freePlanetIDs[nextFreeID] = freePlanetIDs[freePlanetIDs.length]; // move last element to that one that was just assigned
 		delete freePlanetIDs[freePlanetIDs.length];
 		return true;
 	}

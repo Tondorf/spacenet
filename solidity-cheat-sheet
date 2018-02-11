@@ -1,0 +1,60 @@
+- pragma solidity ^0.4.19; ganz oben
+- contract außen rum um den Code
+- uint varname;
+- Math: + - * / % **
+- struct wie in C
+- string datentyp direkt
+- array like so: Person[] public people
+- function xxx(paramtype _param) { ... }
+- function params start with _ (convention)
+- struct def. macht direkt auch ctor:
+	Person satoshi = Person(172, "Satoshi");
+- arrays haben .push(x)
+- functions "public" by default
+- private functions:
+	_ vorm Name und "private" modifier hinten
+- functions die nur lesen: "view" modifier
+- wenn ausgabe NUR von parametern abhängt:
+	"pure" modifier
+- "returns (type1)" als modifier für returns
+- keccak256() builtin macht keccak hash
+- typecast: uint(xxx)
+- Events:
+  declare:
+    event EventName(type1 param1, ...);
+  call:
+    EventName(param1, ...);
+
+- address: 0x...
+- mapping: wie hash map, key-value store:
+	mapping (address => uint) public balance;
+	modifizieren und auslesen mit map[index]
+- globale variable mit absenser-addresse
+	msg.sender
+- require: wie assert in python
+- Inheritance: contract Child is Parent {...}
+- import "./othercontract.sol";
+- "storage" vs. "memory"
+- außer private/public gibt's auch noch
+	internal = wie protected in Java
+	external = public und können NUR von außen gecallt werden
+- interface: ";" statt "{...}", wie in Java...
+- multi-return multi-assignment wie in python
+- if (...) { ... }
+
+- "modifier" sehen aus wie functions aber können dann als attribute an funktionen drangehängt werden
+- Time: "now" = timestamp
+	seconds, minutes, hours, days, weeks, years
+	"now + 5 minutes"
+- modifier können auch argumente kriegen
+  function xxx(uint _uid) olderThan(_uid, 18) {...}
+- arrays in memory:
+	uint[] memory values = new uint[](3);
+- for: "for (uint i = 1; i <= 10; i++)"
+
+- "payable" modifier:
+	require(msg.value == lvlUpFee);
+- Withdraws:
+	owner.transfer(this.balance);
+	msg.sender.transfer(msg.value - itemFee);
+- 
