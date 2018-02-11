@@ -1,20 +1,48 @@
-
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <title>SPAAAAAAAAAAAAAAAAAAAAAAACE</title>
+    <meta charset="UTF-8">
     <script src="./node_modules/web3/dist/web3.min.js"></script>
-    <script type="text/javascript" src="test.js"></script>
-    <style type="text/css">
-        body {
-            background: #101010;
-        }
-    </style>
 </head>
 
 <body>
-<div id="container"></div>
-</body>
+    <h1>Input</h1>
+    <input id="input">
+    <button onClick="setX($('#input').val());">Submit</button>
 
-</html>
+    <h1>Output</h1>
+    <input id="output" readonly>
+    <button onClick="getX();">Refresh</button>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+
+    <script>
+    if (typeof web3 !== 'undefined') {
+        web3 = new Web3(web3.currentProvider);
+    } else {
+        web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
+    }
+
+    web3.eth.defaultAccount = web3.eth.accounts[0];
+    var contractABI = web3.eth.contract([{"constant":true,"inputs":[],"name":"x","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_x","type":"uint256"}],"name":"setX","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}]);
+    var contract = contractABI.at('0xba893a72684c640de275d0ff9cdfc53b02a2e6fa');
+    console.log(contract);
+
+    function setX(x) {
+        contract.setX(x);
+        console.log('Setting x to ' + x);
+    }
+
+    function getX() { 
+        contract.x(function(error, result) {
+            if(!error) {
+                $('#output').val(result);
+                console.log('Result: x = ' + result);
+            } else {
+                $('#output').val('Error: ' + error);
+                console.error(error);
+            }
+        });
+    }
+    </script>
+</body>
