@@ -67,11 +67,17 @@ contract Space is Ownable {
 		if (msg.value > REGISTRATION_FEE) {
 			msg.sender.transfer(msg.value - REGISTRATION_FEE); // send back everything that was too much
 		}
-		_assignPlanet(msg.sender, _planetname);
+		bool success = _assignPlanet(msg.sender, _planetname);
+		if (!success) { // refund
+			msg.sender.transfer(REGISTRATION_FEE);
+		}
 	}
 
-	function _assignPlanet(address _playerID, string _planetname) internal {
+	function _assignPlanet(address _playerID, string _planetname) internal returns (bool) {
 		uint freePlanets = freePlanetIDs.length;
+		if (freePlanets == 0) {
+			return false;
+		}
 		uint freePlanetID = uint(keccak256(uint(_playerID) + now)) % freePlanets;
 		uint newPlayerPlanetID = freePlanetIDs[freePlanetID];
 
@@ -81,6 +87,7 @@ contract Space is Ownable {
 
 		freePlanetIDs[freePlanetID] = freePlanetIDs[freePlanetIDs.length]; // move last element to that one that was just assigned
 		delete freePlanetIDs[freePlanetIDs.length];
+		return true;
 	}
 
 	function buildSpaceship(uint _planetID) external owns(msg.sender, _planetID) {
