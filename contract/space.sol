@@ -19,25 +19,17 @@ contract Space is Ownable {
 
 	struct Planet {
 		uint hash;
-		uint size;
 		address owner;
 		uint fleets;
 		uint immunity;
 	}
 
-	modifier exists(uint _planetID) {
-		require(_planetID < planets.length);
-		_;
-	}
-
 	modifier owns(address _player, uint _planetID) {
-		require(_planetID < planets.length); // same as exists
 		require(planets[_planetID].owner == _player);
 		_;
 	}
 
 	modifier hasAtLeast(uint _planetID, uint _fleet) {
-		require(_planetID < planets.length); // same as exists
 		require(planets[_planetID].fleets >= _fleet);
 		_;
 	}
@@ -52,31 +44,27 @@ contract Space is Ownable {
 
 	// Registration, to be called initially by each player
 	function register() external payable {
-		require(msg.value >= REGISTRATION_FEE); // registration fee is 1 ether
+		require(msg.value >= REGISTRATION_FEE);
 		if (msg.value > REGISTRATION_FEE) {
-			msg.sender.transfer(msg.value - REGISTRATION_FEE); // send back everything that was too much
+            // send back everything that was too much
+			msg.sender.transfer(msg.value - REGISTRATION_FEE);
 		}
-		_assignHomePlanet(msg.sender);
+		_newPlanet(msg.sender, STARTING_SHIP_COUNT, true);
 	}
 
-	function _assignHomePlanet(address _player) internal {
-		_newPlanet(_player, 100, STARTING_SHIP_COUNT, true);
-	}
-
-	function _newPlanet(address _player, uint _size, uint _fleet, bool _homebase) private {
+	function _newPlanet(address _player, uint _fleet, bool _homebase) private {
 		uint hash = uint(keccak256(block.timestamp + uint(_player)));
 		uint immunity = 1 minutes; // <- for testing // 1 days;
 		if (_homebase) {
 			immunity = 1 weeks;
 		}
 
-		uint id = planets.push(Planet(hash, _size, _player, _fleet, immunity)); // create planet
+		uint id = planets.push(Planet(hash, _player, _fleet, immunity)); // create planet
 		player2planets[_player].push(id); // add home planet to player's mapping array
-		shipcount[_player] = _fleet; // initialize ship counter for player
+		shipcount[_player] += _fleet; // initialize ship counter for player
 	}
 
-	function transfer(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(msg.sender, _to) {
-		require(planets[_from].fleets >= _fleet);
+	function transfer(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(msg.sender, _to) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
 		planets[_to].fleets += _fleet;
 		// TODO: calculate cost or something
@@ -104,9 +92,8 @@ contract Space is Ownable {
 
 	function expedition(uint _from, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
-		uint rng = uint(keccak256(block.timestamp + uint(msg.sender) + planets[_from].hash));
 		uint wayloss = 0; // TODO: calculate
-		_newPlanet(msg.sender, 10+rng%41, _fleet-wayloss, false);
+		_newPlanet(msg.sender, _fleet-wayloss, false);
 	}
 
 	// ships go to homebase
@@ -124,9 +111,9 @@ contract Space is Ownable {
 		return player2planets[_player]; // what if key doesn't exist
 	}
 
-	function getPlanet(uint _planetID) external view exists(_planetID) returns (uint, address, uint) {
-		Planet memory p = planets[_planetID];
-		return (p.size, p.owner, p.fleets);
+	function getPlanet(uint _planetID) external view returns (address, uint) {
+		Planet storage p = planets[_planetID];
+		return (p.owner, p.fleets);
 	}
 
 	function getFleetCountForPlayer(address _player) external view returns (uint) {
