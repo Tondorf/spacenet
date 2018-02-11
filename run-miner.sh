@@ -10,6 +10,6 @@ geth \
 	--nodiscover \
 	--mine --minerthreads=1 \
 	--rpc --rpcaddr 127.0.0.1 --rpcport 8545 \
-	--rpcapi "web3,eth" --rpccorsdomain "http://localhost:8000" \
+	--rpcapi "web3,eth" --rpccorsdomain="chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn" --rpccorsdomain="http://localhost:8000" \
 	--etherbase=${1} \
 	--bootnodes ${2}
