@@ -1,0 +1,42 @@
+
+
+
+struct Planet {
+  hash (for pos)
+  adress (owner)
+	amount (ships)
+}
+
+
+Planet[] internal _planets;
+mapping (address -> uint) internal _shipcount;
+mapping (address -> uint[]) internal _playerToPlanets;
+
+
+global startingshipcount
+global distancecostsfactor
+  + admin func zum setzen
+
+
+func takeover(ships uint, from, to)
+  - distance costs (ships)
+	- battle (more ships win)
+
+
+// find a new planet
+func expedition(ships uint)
+  - subtract ships from source planet
+  - make sure it's not too far away
+
+
+func buyships(n) ;)
+
+
+
+----
+
+constructor .... 
+admin funcs für faktoren
+
+
+
