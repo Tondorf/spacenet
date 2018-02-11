@@ -1,28 +1,36 @@
 window.addEventListener('load', function() {
-
-  // Checking if Web3 has been injected by the browser (Mist/MetaMask)
   if (typeof web3 !== 'undefined') {
-    // Use Mist/MetaMask's provider
-    web3js = new Web3(web3.currentProvider);
+    web3 = new Web3(web3.currentProvider);
   } else {
-    console.log('No web3? You should consider trying MetaMask!')
-    // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
-    //web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+    web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
   }
 
-  // Now you can start your app & access web3 freely:
   startApp()
+});
 
-})
+function loadFile(filename, callback, forceMimeType = '') {   
+	var xobj = new XMLHttpRequest();
+  if (forceMimeType) {
+	  xobj.overrideMimeType(forceMimeType);
+  }
+	xobj.open('GET', filename, true);
+	xobj.onreadystatechange = function () {
+		if (xobj.readyState == 4 && xobj.status == "200") {
+			callback(xobj.responseText);
+		}
+	};
+	xobj.send(null);  
+}
+
+function wireContract(contractABI, contractLocation) {
+	var abi = web3.eth.contract(contractABI);
+  var contract = abi.at(contractLocation);
+}
 
 function startApp() {
-  console.log(web3.version.api)
-  console.log(web3.version.network)
-  console.log(web3.eth.coinbase)
-  web3.eth.getBalance(web3.eth.coinbase, function(error, result) {
-    if (!error)
-      console.log(web3.fromWei(result.toNumber(), web3.ether))
-    else
-      console.error(error)
-  })
+	loadFile('contractABI.json', function(contractABI) {
+	  loadFile('contractLocation.txt', function(contractLocation) {
+      wireContract(JSON.parse(contractABI), contractLocation);
+    });
+	}, 'application/json');
 }
