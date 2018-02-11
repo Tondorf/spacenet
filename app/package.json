@@ -1,0 +1,16 @@
+{
+  "name": "space",
+  "version": "1.0.0",
+  "description": "",
+  "main": "test.js",
+  "dependencies": {
+    "web3": "github:ethereum/web3.js"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "http-server . -a localhost -p 9000 -c-1"
+  },
+  "author": "",
+  "license": "ISC"
+}
