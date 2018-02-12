@@ -59,44 +59,65 @@ contract Space is Ownable {
 			immunity = 1 weeks;
 		}
 
-		uint id = planets.push(Planet(hash, _player, _fleet, immunity)); // create planet
+		uint id = planets.push(Planet(hash, _player, _fleet, immunity)) - 1; // create planet
 		player2planets[_player].push(id); // add home planet to player's mapping array
-		shipcount[_player] += _fleet; // initialize ship counter for player
+		shipcount[_player] += _fleet; // increase ship counter for player
 	}
 
+	// Transfer ships from one planet to another, caller must own both
 	function transfer(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(msg.sender, _to) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
 		planets[_to].fleets += _fleet;
 		// TODO: calculate cost or something
 	}
 
+	// Attack another planet that is owned by another player
 	function attack(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) {
 		require(planets[_to].owner != msg.sender);
 		require(planets[_to].owner != 0x0);
-		planets[_from].fleets -= _fleet; // ships take
+		planets[_from].fleets -= _fleet; // ships take off
+		shipcount[planets[_from].owner] -= _fleet;
 
 		// TODO: calculate cost or something
 
+		Planet storage target = planets[_to];
 		uint attackers = _fleet;
-		uint defendants = planets[_to].fleets;
+		uint defendants = target.fleets;
 		if (attackers == defendants) {
-			planets[_to].owner = 0x0; // planet becomes uninhabited
-			planets[_to].fleets = 0;
-		} else if (attackers < defendants) { // attacker loses
-			planets[_to].fleets = defendants - attackers;
-		} else if (attackers > defendants) { // attacker wins, change ownership
-			planets[_to].fleets = attackers - defendants;
-			planets[_to].owner = msg.sender;
+			target.owner = 0x0; // planet becomes uninhabited
+			target.fleets = 0;
+		} else {
+			if (attackers < defendants) { // attacker loses
+				target.fleets = defendants - attackers;
+			} else if (attackers > defendants) { // attacker wins, change ownership
+				target.fleets = attackers - defendants;
+				target.owner = msg.sender;
+			}
+			shipcount[target.owner] += target.fleets; // add ships that survived to old/new owner total
 		}
 	}
 
-	function expedition(uint _from, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
+	// Colonize an uninhabited planet.
+	// Uninhabited planets come into existance as a result of a tied battle.
+	function colonize(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(0x0, _to) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
-		uint wayloss = 0; // TODO: calculate
-		_newPlanet(msg.sender, _fleet-wayloss, false);
+		planets[_to].fleets += _fleet;
+		// don't need to update shipcount (yet)
+		planets[_to].owner = msg.sender;
+		// TODO: calculate cost or something
 	}
 
-	// ships go to homebase
+	// Start an expedition that discovers a new planet with a chance of losing
+	// ships along the way as well as find new fleets at the new planet
+	function expedition(uint _from, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
+		planets[_from].fleets -= _fleet;
+		shipcount[msg.sender] -= _fleet;
+		uint wayloss = 0; // TODO: calculate
+		uint newPlanetGain = 0; // TODO: calculate
+		_newPlanet(msg.sender, _fleet-wayloss+newPlanetGain, false);
+	}
+
+	// Buy ships that spawn at homebase
 	function buyShips() external payable {
 		uint ships = msg.value / SHIP_COST;
 		uint homebaseID = player2planets[msg.sender][0];
@@ -114,6 +135,18 @@ contract Space is Ownable {
 	function getPlanet(uint _planetID) external view returns (address, uint) {
 		Planet storage p = planets[_planetID];
 		return (p.owner, p.fleets);
+	}
+
+	function getUninhabitedPlanetIDs() external view return (uint[]) {
+		uint[] memory uninhabitedIDs;
+		uint counter = 0
+		for (uint i = 0; i < planets.length; i++) {
+			if (planets[i].owner == 0x0) {
+				uninhabitedIDs[counter] = i;
+				counter++;
+			}
+		}
+		return uninhabitedIDs;
 	}
 
 	function getFleetCountForPlayer(address _player) external view returns (uint) {
