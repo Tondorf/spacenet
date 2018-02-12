@@ -28,11 +28,16 @@ function wireContract(contractABI, contractLocation) {
 	var abi = web3.eth.contract(contractABI);
   var contract = abi.at(contractLocation);
   contract.echo(1337, function(error, result) {
-    if(!error) {
-      console.log('Echo: ' + result);
-    } else {
-      console.error('Error: ' + error);
-    }
+    if(!error) { console.log('Echo: ' + result); }
+    else { console.error('Error: ' + error); }
+  });
+  contract.getPlanet(0, function(error, result) {
+    if(!error) { console.log('Echo: ' + typeof(result) + " " + result ); }
+    else { console.error('Error: ' + error); }
+  });
+  contract.getPlanet(1, function(error, result) {
+    if(!error) { console.log('Echo: ' + typeof(result) + " " + result ); }
+    else { console.error('Error: ' + error); }
   });
 }
 
