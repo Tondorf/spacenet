@@ -21,7 +21,8 @@ contract Space is Ownable {
 		uint hash;
 		address owner;
 		uint fleets;
-		uint immunity;
+		uint creation;
+		uint immuneUntil;
 	}
 
 	modifier owns(address _player, uint _planetID) {
@@ -54,14 +55,37 @@ contract Space is Ownable {
 
 	function _newPlanet(address _player, uint _fleet, bool _homebase) private {
 		uint hash = uint(keccak256(block.timestamp + uint(_player)));
-		uint immunity = 1 minutes; // <- for testing // 1 days;
+		uint immuneUntil = now + 1 minutes; // <- for testing // 1 days;
 		if (_homebase) {
-			immunity = 1 weeks;
+			immuneUntil = now + 1 weeks;
 		}
-
-		uint id = planets.push(Planet(hash, _player, _fleet, immunity)) - 1; // create planet
+		uint id = planets.push(Planet(hash, _player, _fleet, now, immuneUntil)) - 1; // create planet
 		player2planets[_player].push(id); // add home planet to player's mapping array
 		shipcount[_player] += _fleet; // increase ship counter for player
+	}
+
+	function _removeOwnership(uint _planetID) private {
+		require(planets[_planetID].owner != 0x0);
+		address owner = planets[_planetID].owner;
+
+		uint len = player2planets[owner].length;
+		require(len > 1); // don't do anything if homebase is only planet
+
+		// start at index 1 so homebase never get's deleted
+		for (uint i = 1; i < len; i++) {
+			if (player2planets[owner][i] == _planetID) {
+				player2planets[owner][i] = player2planets[owner][len-1];
+				delete player2planets[owner][len-1];
+				player2planets[owner].length--;
+			}
+		}
+		planets[_planetID].owner = 0x0;
+		planets[_planetID].immuneUntil = now;
+	}
+
+	function _takeOwnership(uint _planetID, address _playerID) private owns(0x0, _planetID) {
+		planets[_planetID].owner = _playerID;
+		player2planets[_playerID].push(_planetID);
 	}
 
 	// Transfer ships from one planet to another, caller must own both
@@ -85,7 +109,8 @@ contract Space is Ownable {
 		uint attackers = _fleet;
 		uint defendants = target.fleets;
 		if (attackers == defendants) {
-			target.owner = 0x0; // planet becomes uninhabited
+			// planet becomes uninhabited
+			_removeOwnership(_to);
 			target.fleets = 0;
 		} else if (attackers < defendants) { // attacker loses
 			target.fleets -= attackers;
@@ -93,7 +118,12 @@ contract Space is Ownable {
 		} else if (attackers > defendants) { // attacker wins, change ownership
 			target.fleets = attackers - defendants;
 			shipcount[target.owner] -= defendants; // victim loses all ships
-			target.owner = msg.sender;
+
+			// transfer ownership
+			_removeOwnership(_to);
+			_takeOwnership(_to, msg.sender);
+
+			// update shipcount
 			shipcount[target.owner] += target.fleets; // add ships that survived to old/new owner total
 		}
 	}
@@ -104,7 +134,7 @@ contract Space is Ownable {
 		planets[_from].fleets -= _fleet;
 		planets[_to].fleets += _fleet;
 		// don't need to update shipcount (yet)
-		planets[_to].owner = msg.sender;
+		_takeOwnership(_to, msg.sender);
 		// TODO: calculate cost or something
 	}
 
@@ -134,14 +164,14 @@ contract Space is Ownable {
 		return player2planets[_player]; // what if key doesn't exist
 	}
 
-	function getPlanet(uint _planetID) external view returns (address, uint) {
+	function getPlanet(uint _planetID) external view returns (address, uint, uint, uint) {
 		Planet storage p = planets[_planetID];
-		return (p.owner, p.fleets);
+		return (p.owner, p.fleets, p.creation, p.immuneUntil);
 	}
 
-	function getUninhabitedPlanetIDs() external view return (uint[]) {
+	function getUninhabitedPlanetIDs() external view returns (uint[]) {
 		uint[] memory uninhabitedIDs;
-		uint counter = 0
+		uint counter = 0;
 		for (uint i = 0; i < planets.length; i++) {
 			if (planets[i].owner == 0x0) {
 				uninhabitedIDs[counter] = i;
