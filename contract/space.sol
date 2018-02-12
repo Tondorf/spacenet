@@ -68,11 +68,12 @@ contract Space is Ownable {
 	function transfer(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) owns(msg.sender, _to) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
 		planets[_to].fleets += _fleet;
+		// don't need to update shipcount (yet)
 		// TODO: calculate cost or something
 	}
 
 	// Attack another planet that is owned by another player
-	function attack(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) {
+	function attack(uint _from, uint _to, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
 		require(planets[_to].owner != msg.sender);
 		require(planets[_to].owner != 0x0);
 		planets[_from].fleets -= _fleet; // ships take off
@@ -86,13 +87,13 @@ contract Space is Ownable {
 		if (attackers == defendants) {
 			target.owner = 0x0; // planet becomes uninhabited
 			target.fleets = 0;
-		} else {
-			if (attackers < defendants) { // attacker loses
-				target.fleets = defendants - attackers;
-			} else if (attackers > defendants) { // attacker wins, change ownership
-				target.fleets = attackers - defendants;
-				target.owner = msg.sender;
-			}
+		} else if (attackers < defendants) { // attacker loses
+			target.fleets -= attackers;
+			shipcount[target.owner] -= attackers;
+		} else if (attackers > defendants) { // attacker wins, change ownership
+			target.fleets = attackers - defendants;
+			shipcount[target.owner] -= defendants; // victim loses all ships
+			target.owner = msg.sender;
 			shipcount[target.owner] += target.fleets; // add ships that survived to old/new owner total
 		}
 	}
@@ -111,10 +112,10 @@ contract Space is Ownable {
 	// ships along the way as well as find new fleets at the new planet
 	function expedition(uint _from, uint _fleet) external owns(msg.sender, _from) hasAtLeast(_from, _fleet) {
 		planets[_from].fleets -= _fleet;
-		shipcount[msg.sender] -= _fleet;
+		shipcount[msg.sender] -= _fleet; // ships depart
 		uint wayloss = 0; // TODO: calculate
 		uint newPlanetGain = 0; // TODO: calculate
-		_newPlanet(msg.sender, _fleet-wayloss+newPlanetGain, false);
+		_newPlanet(msg.sender, _fleet-wayloss+newPlanetGain, false); // shipcount is adjusted inside
 	}
 
 	// Buy ships that spawn at homebase
@@ -123,6 +124,7 @@ contract Space is Ownable {
 		uint homebaseID = player2planets[msg.sender][0];
 		Planet storage homebase = planets[homebaseID]; // homebase is first in list
 		homebase.fleets += ships;
+		shipcount[msg.sender] += ships;
 		msg.sender.transfer(msg.value - ships * SHIP_COST); // send back the change
 	}
 
