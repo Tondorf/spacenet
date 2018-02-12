@@ -30,6 +30,11 @@ contract Space is Ownable {
 		_;
 	}
 
+	modifier homebaseOf(uint _planetID, address _player) {
+		require(homebases[_player] == _planetID);
+		_;
+	}
+
 	modifier hasAtLeast(uint _planetID, uint _fleet) {
 		require(planets[_planetID].fleets >= _fleet);
 		_;
@@ -37,7 +42,8 @@ contract Space is Ownable {
 
 	Planet[] public planets;
 	mapping (address => uint[]) internal player2planets; // homeplanet is always first in the list
-	mapping (address => uint) internal shipcount; // mainly for statistics
+	mapping (address => uint) internal homebases; // store player's homebases, this never changes
+	mapping (address => uint) internal shipcount; // mainly for statistics, shipcount=score
 
 	function Space() public {
 		//
@@ -83,9 +89,9 @@ contract Space is Ownable {
 		planets[_planetID].immuneUntil = now;
 	}
 
-	function _takeOwnership(uint _planetID, address _playerID) private owns(0x0, _planetID) {
-		planets[_planetID].owner = _playerID;
-		player2planets[_playerID].push(_planetID);
+	function _takeOwnership(uint _planetID, address _player) private owns(0x0, _planetID) {
+		planets[_planetID].owner = _player;
+		player2planets[_player].push(_planetID);
 	}
 
 	// Transfer ships from one planet to another, caller must own both
