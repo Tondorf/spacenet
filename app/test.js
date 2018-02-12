@@ -23,14 +23,23 @@ function loadFile(filename, callback, forceMimeType = '') {
 }
 
 function wireContract(contractABI, contractLocation) {
+  web3.eth.defaultAccount = web3.eth.accounts[0];
+
 	var abi = web3.eth.contract(contractABI);
   var contract = abi.at(contractLocation);
+  contract.echo(1337, function(error, result) {
+    if(!error) {
+      console.log('Echo: ' + result);
+    } else {
+      console.error('Error: ' + error);
+    }
+  });
 }
 
 function startApp() {
 	loadFile('contractABI.json', function(contractABI) {
 	  loadFile('contractLocation.txt', function(contractLocation) {
-      wireContract(JSON.parse(contractABI), contractLocation);
+      wireContract(JSON.parse(contractABI), contractLocation.trim());
     });
 	}, 'application/json');
 }

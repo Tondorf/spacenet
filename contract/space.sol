@@ -120,4 +120,7 @@ contract Space is Ownable {
 		return shipcount[_player]; // what if key doesn't exist
 	}
 
+    function echo(uint _x) external pure returns (uint) {
+        return _x;
+    }
 }
